@@ -53,12 +53,32 @@ app.post("/api/users", (req, res) => {
 });
 
 // 4. GET /api/users to get a list of all users
+// app.get("/api/users", async (req, res) => {
+// 	try {
+// 		const users = await User.find({}, "username _id"); // Fetch users with only _id and username
+// 		res.json(users);
+// 	} catch (err) {
+// 		console.error("Database Query Error:", err); // Logs detailed error
+// 		res.status(500).json({ error: "Internal Server Error" });
+// 	}
+// });
+
 app.get("/api/users", async (req, res) => {
 	try {
-		const users = await User.find({}, "username _id"); // Fetch users with only _id and username
-		res.json(users);
+		const users = await User.find({}, "username _id").lean(); // Convert Mongoose objects to plain JSON
+		if (!Array.isArray(users)) {
+			throw new Error("Database did not return an array.");
+		}
+
+		// Ensure _id is a string
+		const formattedUsers = users.map((user) => ({
+			username: user.username,
+			_id: user._id.toString(), // Convert _id from ObjectId to string
+		}));
+
+		res.json(formattedUsers);
 	} catch (err) {
-		console.error("Database Query Error:", err); // Logs detailed error
+		console.error("Database Query Error:", err.message); // Logs detailed error
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 });
