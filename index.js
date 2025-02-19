@@ -53,43 +53,43 @@ app.post("/api/users", (req, res) => {
 });
 
 // 4. GET /api/users to get a list of all users
-// app.get("/api/users", async (req, res) => {
-// 	try {
-// 		const users = await User.find({}, "username _id"); // Fetch users with only _id and username
-// 		res.json(users);
-// 	} catch (err) {
-// 		console.error("Database Query Error:", err); // Logs detailed error
-// 		res.status(500).json({ error: "Internal Server Error" });
-// 	}
-// });
-
 app.get("/api/users", async (req, res) => {
 	try {
-		// Check if database connection is successful
-		if (mongoose.connection.readyState !== 1) {
-			throw new Error("Database not connected");
-		}
-
-		const users = await User.find({}, "username _id").lean(); // Fetch users as plain objects
-
-		if (!users) {
-			throw new Error("No users found");
-		}
-
-		// Ensure _id is a string
-		const formattedUsers = users.map((user) => ({
-			username: user.username,
-			_id: user._id.toString(),
-		}));
-
-		res.json(formattedUsers);
+		const users = await User.find(); // Fetch users with only _id and username
+		res.json(users);
 	} catch (err) {
-		console.error("Error fetching users:", err.message);
-		res
-			.status(500)
-			.json({ error: "Internal Server Error", details: err.message });
+		console.error("Database Query Error:", err); // Logs detailed error
+		res.status(500).json({ error: "Internal Server Error" });
 	}
 });
+
+// app.get("/api/users", async (req, res) => {
+// 	try {
+// 		// Check if database connection is successful
+// 		if (mongoose.connection.readyState !== 1) {
+// 			throw new Error("Database not connected");
+// 		}
+
+// 		const users = await User.find({}, "username _id").lean(); // Fetch users as plain objects
+
+// 		if (!users) {
+// 			throw new Error("No users found");
+// 		}
+
+// 		// Ensure _id is a string
+// 		const formattedUsers = users.map((user) => ({
+// 			username: user.username,
+// 			_id: user._id.toString(),
+// 		}));
+
+// 		res.json(formattedUsers);
+// 	} catch (err) {
+// 		console.error("Error fetching users:", err.message);
+// 		res
+// 			.status(500)
+// 			.json({ error: "Internal Server Error", details: err.message });
+// 	}
+// });
 
 // 7. POST /api/users/:_id/exercises to add an exercise to a user
 app.post("/api/users/:_id/exercises", (req, res) => {
