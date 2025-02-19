@@ -55,7 +55,7 @@ app.post("/api/users", (req, res) => {
 // 4. GET /api/users to get a list of all users
 app.get("/api/users", async (req, res) => {
 	try {
-		const users = await User.find({}, "_id username"); // Fetch users with only _id and username
+		const users = await User.find({}, "username _id"); // Fetch users with only _id and username
 		res.json(users);
 	} catch (err) {
 		console.error("Database Query Error:", err); // Logs detailed error
