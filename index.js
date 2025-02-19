@@ -53,11 +53,14 @@ app.post("/api/users", (req, res) => {
 });
 
 // 4. GET /api/users to get a list of all users
-app.get("/api/users", (req, res) => {
-	User.find({}, (err, users) => {
-		if (err) return res.json({ error: "Error fetching users" });
-		res.json(users);
-	});
+app.get("/api/users", async (req, res) => {
+	try {
+		// Find all users but return only _id and username
+		const users = await User.find({}, "_id username");
+		res.json(users); // This ensures an array of objects with _id and username only
+	} catch (err) {
+		res.status(500).json({ error: "Error fetching users" });
+	}
 });
 
 // 7. POST /api/users/:_id/exercises to add an exercise to a user
