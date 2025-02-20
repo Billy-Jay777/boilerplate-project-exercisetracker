@@ -36,118 +36,100 @@ const exerciseSchema = new mongoose.Schema({
 });
 const Exercise = mongoose.model("Exercise", exerciseSchema);
 
-// Route to Serve the Index Page
+// Serve the Index Page
 app.get("/", (req, res) => {
 	res.sendFile(__dirname + "/views/index.html");
 });
 
-// 2. POST /api/users to create a new user
-app.post("/api/users", (req, res) => {
-	const { username } = req.body;
-	const newUser = new User({ username });
-
-	newUser
-		.save()
-		.then((user) => res.json({ username: user.username, _id: user._id }))
-		.catch((err) => res.json({ error: "Username already taken" }));
+// 1️⃣ POST /api/users → Create a new user
+app.post("/api/users", async (req, res) => {
+	try {
+		const { username } = req.body;
+		const newUser = new User({ username });
+		const savedUser = await newUser.save();
+		res.json({ username: savedUser.username, _id: savedUser._id });
+	} catch (err) {
+		res.status(400).json({ error: "Username already taken" });
+	}
 });
 
-// 4. GET /api/users to get a list of all users
+// 2️⃣ GET /api/users → Retrieve all users
 app.get("/api/users", async (req, res) => {
 	try {
-		const users = await User.find(); // Fetch users with only _id and username
+		const users = await User.find({}, "username _id").lean();
 		res.json(users);
 	} catch (err) {
-		console.error("Database Query Error:", err); // Logs detailed error
+		console.error("Error fetching users:", err);
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 });
 
-// app.get("/api/users", async (req, res) => {
-// 	try {
-// 		// Check if database connection is successful
-// 		if (mongoose.connection.readyState !== 1) {
-// 			throw new Error("Database not connected");
-// 		}
+// 3️⃣ POST /api/users/:_id/exercises → Add an exercise
+app.post("/api/users/:_id/exercises", async (req, res) => {
+	try {
+		const { _id } = req.params;
+		const { description, duration, date } = req.body;
 
-// 		const users = await User.find({}, "username _id").lean(); // Fetch users as plain objects
+		const user = await User.findById(_id);
+		if (!user) {
+			return res.status(404).json({ error: "User not found" });
+		}
 
-// 		if (!users) {
-// 			throw new Error("No users found");
-// 		}
+		const exercise = new Exercise({
+			userId: _id,
+			description,
+			duration: Number(duration),
+			date: date ? new Date(date) : new Date(),
+		});
 
-// 		// Ensure _id is a string
-// 		const formattedUsers = users.map((user) => ({
-// 			username: user.username,
-// 			_id: user._id.toString(),
-// 		}));
+		const savedExercise = await exercise.save();
 
-// 		res.json(formattedUsers);
-// 	} catch (err) {
-// 		console.error("Error fetching users:", err.message);
-// 		res
-// 			.status(500)
-// 			.json({ error: "Internal Server Error", details: err.message });
-// 	}
-// });
-
-// 7. POST /api/users/:_id/exercises to add an exercise to a user
-app.post("/api/users/:_id/exercises", (req, res) => {
-	const { _id } = req.params;
-	const { description, duration, date } = req.body;
-
-	const exercise = new Exercise({
-		userId: _id,
-		description,
-		duration: Number(duration),
-		date: date ? new Date(date) : new Date(), // If no date, use the current date
-	});
-
-	exercise
-		.save()
-		.then((exercise) => {
-			User.findById(_id).then((user) => {
-				res.json({
-					username: user.username,
-					_id: user._id,
-					description: exercise.description,
-					duration: exercise.duration,
-					date: exercise.date.toDateString(),
-				});
-			});
-		})
-		.catch((err) => res.json({ error: "Invalid user ID" }));
+		res.json({
+			username: user.username,
+			description: savedExercise.description,
+			duration: savedExercise.duration,
+			date: savedExercise.date.toDateString(),
+			_id: user._id,
+		});
+	} catch (err) {
+		console.error("Error adding exercise:", err);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
 });
 
-// 9. GET /api/users/:_id/logs to retrieve the exercise log of a user
-app.get("/api/users/:_id/logs", (req, res) => {
-	const { _id } = req.params;
-	const { from, to, limit } = req.query;
+// 4️⃣ GET /api/users/:_id/logs → Get exercise logs
+app.get("/api/users/:_id/logs", async (req, res) => {
+	try {
+		const { _id } = req.params;
+		const { from, to, limit } = req.query;
 
-	let query = { userId: _id };
+		const user = await User.findById(_id);
+		if (!user) {
+			return res.status(404).json({ error: "User not found" });
+		}
 
-	if (from) query.date = { $gte: new Date(from) };
-	if (to) query.date = { ...query.date, $lte: new Date(to) };
+		let query = { userId: _id };
+		if (from) query.date = { $gte: new Date(from) };
+		if (to) query.date = { ...query.date, $lte: new Date(to) };
 
-	Exercise.find(query)
-		.limit(Number(limit) || 100) // Default to 100 if no limit is specified
-		.then((exercises) => {
-			User.findById(_id).then((user) => {
-				res.json({
-					_id: user._id,
-					username: user.username,
-					count: exercises.length,
-					log: exercises.map((ex) => ({
-						description: ex.description,
-						duration: ex.duration,
-						date: ex.date.toDateString(), // Convert date to string
-					})),
-				});
-			});
-		})
-		.catch((err) =>
-			res.json({ error: "Invalid user ID or exercises not found" })
-		);
+		const exercises = await Exercise.find(query)
+			.limit(Number(limit) || 100)
+			.lean();
+
+		res.json({
+			username: user.username,
+			_id: user._id,
+			count: exercises.length,
+			log: exercises.map((ex) => ({
+				description: ex.description,
+				duration: ex.duration,
+				date: ex.date.toDateString(),
+			})),
+		});
+	} catch (err) {
+		console.error("Error fetching logs:", err);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
 });
 
 // Start the server
